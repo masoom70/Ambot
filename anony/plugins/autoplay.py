@@ -1,6 +1,8 @@
 from pyrogram import errors, filters, types
+
 from anony import app, config, db, lang
 from anony.helpers import admin_check, buttons
+
 
 @app.on_message(filters.command(["autoplay"]) & ~app.bl_users)
 @lang.language()
@@ -10,13 +12,15 @@ async def _autoplay(_, m: types.Message):
         return await m.reply_text(m.lang["not_playing"])
 
     status = await db.is_autoplay(m.chat.id)
-    txt = m.lang["enabled"] if status else m.lang["disabled"]
+    if status: txt = m.lang["enabled"]
+    else: txt = m.lang["disabled"]
 
     await m.reply_photo(
         photo=config.START_IMG,
         caption=m.lang["auto_play"].format(txt),
         reply_markup=buttons.auto_play(txt),
     )
+
 
 @app.on_callback_query(filters.regex("autoplay") & ~app.bl_users)
 @lang.language()
@@ -35,14 +39,12 @@ async def _autoplay_cb(_, cq: types.CallbackQuery):
 
     status = await db.is_autoplay(chat_id)
     _status = not status
-    txt = cq.lang["enabled"] if _status else cq.lang["disabled"]
+    if _status: txt = cq.lang["enabled"]
+    else: txt = cq.lang["disabled"]
 
     await db.set_autoplay(chat_id, _status)
-    try:
-        await cq.edit_message_text(
-            text=cq.lang["auto_play"].format(txt),
-            reply_markup=buttons.auto_play(txt),
-        )
-    except Exception:
-        pass
-        
+    await cq.edit_message_text(
+        text=cq.lang["auto_play"].format(txt),
+        reply_markup=buttons.auto_play(txt),
+    )
+    
