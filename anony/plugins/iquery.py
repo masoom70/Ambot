@@ -1,7 +1,9 @@
 from py_yt import VideosSearch
 from pyrogram import types
+
 from anony import app
 from anony.helpers import buttons
+
 
 @app.on_inline_query(~app.bl_users)
 async def inline_query_handler(_, query: types.InlineQuery):
@@ -12,8 +14,8 @@ async def inline_query_handler(_, query: types.InlineQuery):
     try:
         search = VideosSearch(text, limit=15)
         results = (await search.next()).get("result", [])
-        answers = []
 
+        answers = []
         for video in results:
             title = video.get("title", "Unknown Title").title()
             duration = video.get("duration", "N/A")
@@ -48,4 +50,4 @@ async def inline_query_handler(_, query: types.InlineQuery):
             await app.answer_inline_query(query.id, results=answers, cache_time=5)
     except Exception:
         pass
-        
+            
