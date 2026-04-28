@@ -35,59 +35,83 @@ class TgCall(PyTgCalls):
         except Exception:
             pass
 
-    async def play_media(self, chat_id: int, message: Message, media: Media | Track, seek_time: int = 0) -> None:
+    async def play_media(
+        self,
+        chat_id: int,
+        message: Message,
+        media: Media | Track,
+        seek_time: int = 0,
+    ) -> None:
         client = await db.get_assistant(chat_id)
         _lang = await lang.get_lang(chat_id)
-        
-        _thumb = None
-        if config.THUMB_GEN:
-            try:
-                _thumb = await thumb.generate(media) if isinstance(media, Track) else config.DEFAULT_THUMB
-            except Exception as e:
-                logger.error(f"Thumbnail Error: {e}")
-                _thumb = config.DEFAULT_THUMB
+        _thumb = (
+            await thumb.generate(media)
+            if isinstance(media, Track)
+            else config.DEFAULT_THUMB
+        ) if config.THUMB_GEN else None
 
         if not media.file_path:
             await message.edit_text(_lang["error_no_file"].format(config.SUPPORT_CHAT))
             return await self.play_next(chat_id)
 
         if media.video:
-            stream = AudioVideoPiped(media.file_path, HighQualityAudio(), HighQualityVideo())
+            stream = AudioVideoPiped(
+                media.file_path, 
+                HighQualityAudio(), 
+                HighQualityVideo(),
+                additional_ffmpeg_parameters=f"-ss {seek_time}" if seek_time > 1 else None
+            )
         else:
-            stream = AudioPiped(media.file_path, HighQualityAudio())
+            stream = AudioPiped(
+                media.file_path, 
+                HighQualityAudio(),
+                additional_ffmpeg_parameters=f"-ss {seek_time}" if seek_time > 1 else None
+            )
 
         try:
             try:
                 await client.change_stream(chat_id, stream)
             except Exception:
                 await client.join_group_call(chat_id, stream)
-            
+
             if not seek_time:
                 media.time = 1
                 await db.add_call(chat_id)
-                text = _lang["play_media"].format(media.url, media.title, media.duration, media.user)
+                text = _lang["play_media"].format(
+                    media.url,
+                    media.title,
+                    media.duration,
+                    media.user,
+                )
                 keyboard = buttons.controls(chat_id)
-                
                 try:
                     if _thumb:
                         await message.edit_media(
                             media=InputMediaPhoto(media=_thumb, caption=text),
-                            reply_markup=keyboard
+                            reply_markup=keyboard,
                         )
                     else:
                         await message.edit_text(text, reply_markup=keyboard)
-                except Exception:
+                except (ChatSendMediaForbidden, ChatSendPhotosForbidden, MessageIdInvalid):
                     if _thumb:
-                        sent = await app.send_photo(chat_id, photo=_thumb, caption=text, reply_markup=keyboard)
+                        sent = await app.send_photo(
+                            chat_id=chat_id,
+                            photo=_thumb,
+                            caption=text,
+                            reply_markup=keyboard,
+                        )
                     else:
-                        sent = await app.send_message(chat_id, text=text, reply_markup=keyboard)
+                        sent = await app.send_message(
+                            chat_id=chat_id,
+                            text=text,
+                            reply_markup=keyboard,
+                        )
                     media.message_id = sent.id
-                    
         except exceptions.NoActiveGroupCall:
             await self.stop(chat_id)
             await message.edit_text(_lang["error_no_call"])
         except Exception as e:
-            logger.error(f"Streaming Error: {e}")
+            logger.error(f"Error while playing: {e}")
             await self.play_next(chat_id)
 
     async def replay(self, chat_id: int) -> None:
@@ -103,16 +127,15 @@ class TgCall(PyTgCalls):
         media = queue.get_next(chat_id)
         try:
             if media and media.message_id:
-                await app.delete_messages(chat_id, media.message_id)
+                await app.delete_messages(chat_id=chat_id, message_ids=media.message_id, revoke=True)
+                media.message_id = 0
         except Exception:
             pass
 
         autoplay = await db.is_autoplay(chat_id)
         _lang = await lang.get_lang(chat_id)
-        
         if not media and not autoplay:
             return await self.stop(chat_id)
-        
         elif autoplay and not media:
             if not isinstance(curr, Track):
                 return await self.stop(chat_id)
@@ -122,7 +145,7 @@ class TgCall(PyTgCalls):
             media.user = _lang["autoplay"]
             queue.force_add(chat_id, media)
 
-        msg = await app.send_message(chat_id, _lang["play_next"])
+        msg = await app.send_message(chat_id=chat_id, text=_lang["play_next"])
         if not media.file_path:
             media.file_path = await yt.download(media.id, video=media.video)
             if not media.file_path:
@@ -133,7 +156,7 @@ class TgCall(PyTgCalls):
         await self.play_media(chat_id, msg, media)
 
     async def ping(self) -> float:
-        pings = [client.ping for client in self.clients if hasattr(client, 'active')]
+        pings = [client.ping for client in self.clients]
         return round(sum(pings) / len(pings), 2) if pings else 0.0
 
     async def decorators(self, client: PyTgCalls) -> None:
