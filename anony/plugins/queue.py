@@ -1,13 +1,6 @@
-# Copyright (c) 2025 AnonymousX1025
-# Licensed under the MIT License.
-# This file is part of AnonXMusic
-
-
 from pyrogram import filters, types
-
 from anony import app, config, db, lang, queue
 from anony.helpers import Track, buttons, thumb
-
 
 @app.on_message(filters.command(["queue", "playing"]) & filters.group & ~app.bl_users)
 @lang.language()
@@ -23,6 +16,7 @@ async def _queue_func(_, m: types.Message):
         if isinstance(_media, Track)
         else config.DEFAULT_THUMB
     ) if config.THUMB_GEN else None
+    
     _text = m.lang["queue_curr"].format(
         _media.url,
         _media.title[:50],
@@ -36,9 +30,7 @@ async def _queue_func(_, m: types.Message):
         for i, media in enumerate(_queue, start=1):
             if i == 15:
                 break
-            _text += m.lang["queue_item"].format(
-                i + 1, media.title, media.duration
-            )
+            _text += m.lang["queue_item"].format(i, media.title, media.duration)
         _text += "</blockquote>"
 
     _playing = await db.playing(m.chat.id)
@@ -47,16 +39,15 @@ async def _queue_func(_, m: types.Message):
             m.lang["playing"] if _playing else m.lang["paused"],
             _playing,
         )
-    if thumb:
-        await _reply.edit_media(
-            media=types.InputMediaPhoto(
-                media=_thumb,
-                caption=_text,
-            ),
-            reply_markup=_buttons,
-        )
+
+    if _thumb:
+        try:
+            await _reply.edit_media(
+                media=types.InputMediaPhoto(media=_thumb, caption=_text),
+                reply_markup=_buttons,
+            )
+        except Exception:
+            await _reply.edit_text(_text, reply_markup=_buttons)
     else:
-        await _reply.edit_text(
-            text=_text,
-            reply_markup=_buttons,
-        )
+        await _reply.edit_text(_text, reply_markup=_buttons)
+        
