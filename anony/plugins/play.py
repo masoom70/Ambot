@@ -1,5 +1,3 @@
-
-
 from pathlib import Path
 
 from pyrogram import filters, types
@@ -127,5 +125,5 @@ async def play_hndlr(
     await app.send_message(
         chat_id=m.chat.id,
         text=m.lang["playlist_queued"].format(len(tracks)) + added,
-    )
+            )
     
