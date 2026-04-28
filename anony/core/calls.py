@@ -115,18 +115,20 @@ class TgCall(PyTgCalls):
         await self.play_media(chat_id, msg, media)
 
     async def ping(self) -> float:
-        pings = [client.ping for client in self.clients if client.active]
+        pings = [client.ping for client in self.clients if hasattr(client, 'active')]
         return round(sum(pings) / len(pings), 2) if pings else 0.0
 
     async def decorators(self, client: PyTgCalls) -> None:
         @client.on_stream_end()
-        async def stream_end_handler(_, update: Update) -> None:
+        async def on_stream_end(_, update: Update) -> None:
             await self.play_next(update.chat_id)
 
         @client.on_kicked()
+        async def on_kicked(_, chat_id: int) -> None:
+            await self.stop(chat_id)
+
         @client.on_closed_voice_chat()
-        @client.on_left_group()
-        async def leave_handler(_, chat_id: int) -> None:
+        async def on_closed(_, chat_id: int) -> None:
             await self.stop(chat_id)
 
     async def boot(self) -> None:
