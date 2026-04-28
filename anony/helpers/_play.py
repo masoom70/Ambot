@@ -1,15 +1,7 @@
-# Copyright (c) 2025 AnonymousX1025
-# Licensed under the MIT License.
-# This file is part of AnonXMusic
-
-
 import asyncio
-
 from pyrogram import enums, errors, types
-
 from anony import app, config, db, logger, queue, yt
 from anony.helpers import utils
-
 
 def checkUB(play):
     async def wrapper(_, m: types.Message):
@@ -55,9 +47,7 @@ def checkUB(play):
                     enums.ChatMemberStatus.RESTRICTED,
                 ]:
                     try:
-                        await app.unban_chat_member(
-                            chat_id=chat_id, user_id=client.id
-                        )
+                        await app.unban_chat_member(chat_id=chat_id, user_id=client.id)
                     except Exception:
                         return await m.reply_text(
                             m.lang["play_banned"].format(
@@ -74,8 +64,7 @@ def checkUB(play):
                     invite_link = m.chat.username
                     try:
                         await client.resolve_peer(invite_link)
-                    except Exception:
-                        pass
+                    except Exception: pass
                 else:
                     try:
                         invite_link = (await app.get_chat(chat_id)).invite_link
@@ -92,14 +81,11 @@ def checkUB(play):
                 await asyncio.sleep(2)
                 try:
                     await client.join_chat(invite_link)
-                except errors.UserAlreadyParticipant:
-                    pass
+                except errors.UserAlreadyParticipant: pass
                 except errors.InviteRequestSent:
                     await asyncio.sleep(2)
                     try:
                         await app.approve_chat_join_request(chat_id, client.id)
-                    except errors.HideRequesterMissing:
-                        pass
                     except Exception as ex:
                         return await umm.edit_text(
                             m.lang["play_invite_error"].format(type(ex).__name__)
@@ -116,9 +102,9 @@ def checkUB(play):
         if await db.get_cmd_delete(chat_id):
             try:
                 await m.delete()
-            except Exception:
-                pass
+            except Exception: pass
 
         return await play(_, m, force, m3u8, video, url)
 
     return wrapper
+            
