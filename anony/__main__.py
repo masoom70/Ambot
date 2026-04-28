@@ -2,7 +2,6 @@ import asyncio
 import signal
 import importlib
 from contextlib import suppress
-
 from anony import (anon, app, config, db,
                    logger, stop, userbot, yt)
 from anony.plugins import all_modules
@@ -31,18 +30,19 @@ async def main():
     sudoers = await db.get_sudoers()
     app.sudoers.update(sudoers)
     app.bl_users.update(await db.get_blacklisted())
-    logger.info(f"Loaded {len(app.sudoers)} sudo users.")
-
+    
     from anony.helpers import thumb
-    await yt.fallen.get_session()
-    await thumb.get_session()
+    if hasattr(yt, "fallen"):
+        await yt.fallen.get_session()
+    if hasattr(thumb, "get_session"):
+        await thumb.get_session()
 
     await idle()
     await stop()
     
-    if yt.fallen.session:
+    if hasattr(yt, "fallen") and yt.fallen.session:
         await yt.fallen.session.close()
-    if thumb.session:
+    if hasattr(thumb, "session") and thumb.session:
         await thumb.session.close()
 
 if __name__ == "__main__":
@@ -50,5 +50,6 @@ if __name__ == "__main__":
         asyncio.get_event_loop().run_until_complete(main())
     except KeyboardInterrupt:
         pass
-    except Exception as e:
-        logger.error(f"Main Loop Error: {e}")
+    except Exception:
+        logger.exception("Main Loop Error:")
+      
