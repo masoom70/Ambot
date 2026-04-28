@@ -1,23 +1,14 @@
-# Copyright (c) 2025 AnonymousX1025
-# Licensed under the MIT License.
-# This file is part of AnonXMusic
-
-
 import asyncio
 import time
-
 from pyrogram import enums, errors, filters, types
-
 from anony import (anon, app, config, db, lang,
                    logger, queue, tasks, userbot, yt)
 from anony.helpers import buttons
-
 
 @app.on_message(filters.video_chat_started, group=19)
 @app.on_message(filters.video_chat_ended, group=20)
 async def _watcher_vc(_, m: types.Message):
     await anon.stop(m.chat.id)
-
 
 async def auto_leave():
     while True:
@@ -26,7 +17,6 @@ async def auto_leave():
             continue
         logger.info("Running auto-leave task...")
         for ub in userbot.clients:
-            left = 0
             try:
                 chats = [dialog.chat.id async for dialog in ub.get_dialogs()
                          if dialog.chat.type in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]][-25:]
@@ -37,16 +27,14 @@ async def auto_leave():
                         continue
                     try:
                         await ub.leave_chat(chat)
-                        left += 1
                         logger.info(f"Left {chat}")
-                    except Exception as ex:
-                        logger.warning(f"Failed to leave {chat}: {ex}")
+                    except Exception:
+                        pass
                     await asyncio.sleep(15)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 continue
-
 
 async def track_time():
     while True:
@@ -58,7 +46,6 @@ async def track_time():
             if not media:
                 continue
             media.time += 1
-
 
 async def update_timer(length=10):
     while True:
@@ -75,12 +62,10 @@ async def update_timer(length=10):
                 remaining = duration - played
                 pos = min(int((played / duration) * length), length - 1)
                 timer = "—" * pos + "◉" + "—" * (length - pos - 1)
-
                 if remaining <= 30:
-                    next = queue.get_next(chat_id, check=True)
-                    if next and not next.file_path:
-                        next.file_path = await yt.download(next.id, video=next.video)
-
+                    next_m = queue.get_next(chat_id, check=True)
+                    if next_m and not next_m.file_path:
+                        next_m.file_path = await yt.download(next_m.id, video=next_m.video)
                 if remaining < 10:
                     remove = True
                 else:
@@ -89,22 +74,17 @@ async def update_timer(length=10):
                     else:
                         timer = None
                     remove = False
-
                 if not timer and not remove:
                     continue
-
                 await app.edit_message_reply_markup(
                     chat_id=chat_id,
                     message_id=message_id,
-                    reply_markup=buttons.controls(
-                        chat_id=chat_id, timer=timer, remove=remove
-                    ),
+                    reply_markup=buttons.controls(chat_id=chat_id, timer=timer, remove=remove),
                 )
             except asyncio.CancelledError:
                 raise
             except Exception:
                 pass
-
 
 async def vc_watcher(sleep=15):
     while True:
@@ -119,15 +99,12 @@ async def vc_watcher(sleep=15):
                     sent = await app.edit_message_reply_markup(
                         chat_id=chat_id,
                         message_id=media.message_id,
-                        reply_markup=buttons.controls(
-                            chat_id=chat_id, status=_lang["stopped"], remove=True
-                        ),
+                        reply_markup=buttons.controls(chat_id=chat_id, status=_lang["stopped"], remove=True),
                     )
                     await anon.stop(chat_id)
                     await sent.reply_text(_lang["auto_left"])
-                except errors.MessageIdInvalid:
+                except Exception:
                     pass
-
 
 if config.AUTO_END:
     tasks.append(asyncio.create_task(vc_watcher()))
