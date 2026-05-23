@@ -50,12 +50,10 @@ class TgCall(PyTgCalls):
             stream = AudioPiped(media.file_path, HighQualityAudio())
 
         try:
-            print(1)
             try:
                 await client.change_stream(chat_id, stream)
             except Exception:
                 await client.join_group_call(chat_id, stream)
-            print(2)
             if not seek_time:
                 media.time = 1
                 await db.add_call(chat_id)
