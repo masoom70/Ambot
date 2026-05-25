@@ -2,6 +2,7 @@ import asyncio
 import signal
 import importlib
 from contextlib import suppress
+
 from anony import (anon, app, config, db,
                    logger, stop, userbot, yt)
 from anony.plugins import all_modules
@@ -32,18 +33,15 @@ async def main():
     app.bl_users.update(await db.get_blacklisted())
     
     from anony.helpers import thumb
-    if hasattr(yt, "fallen"):
-        await yt.fallen.get_session()
-    if hasattr(thumb, "get_session"):
-        await thumb.get_session()
+    if config.API_KEY: await yt.fallen.get_session()
+    await thumb.get_session()
 
     await idle()
     await stop()
     
-    if hasattr(yt, "fallen") and yt.fallen.session:
+    if config.API_KEY:
         await yt.fallen.session.close()
-    if hasattr(thumb, "session") and thumb.session:
-        await thumb.session.close()
+    await thumb.session.close()
 
 if __name__ == "__main__":
     try:
