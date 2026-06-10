@@ -3,6 +3,7 @@
 # This file is part of AnonXMusic
 
 
+"""
 from ntgcalls import (ConnectionNotFound, TelegramServerError,
                       RTMPStreamingUnsupported, ConnectionError)
 from pyrogram.errors import (ChatSendMediaForbidden, ChatSendPhotosForbidden,
@@ -212,6 +213,7 @@ class TgCall(PyTgCalls):
         logger.info("PyTgCalls client(s) started.")
 
 """
+
 from pyrogram.errors import (ChatSendMediaForbidden, ChatSendPhotosForbidden,
                              MessageIdInvalid)
 from pyrogram.types import InputMediaPhoto, Message
@@ -415,4 +417,3 @@ class TgCall(PyTgCalls):
             self.clients.append(client)
             await self.decorators(client)
         logger.info("PyTgCalls client(s) started.")
-"""
