@@ -72,3 +72,79 @@ async def _broadcast(_, message: types.Message):
     try: await sent.delete()
     except Exception: pass
     await message.reply_text(text)
+
+
+@app.on_message(filters.command(["checkbroadcaststats", "cbstats"]) & app.sudoers)
+@lang.language()
+async def _check_broadcast_stats(_, message: types.Message):
+    groups = await db.get_chats()
+    users = await db.get_users()
+
+    sent = await message.reply_text(message.lang["cbstats_start"])
+
+    alive_chats, dead_chats = [], []
+    alive_users, dead_users = [], []
+
+    # CHATS CHECK
+    for chat in groups:
+        try:
+            await app.get_chat(chat)
+            alive_chats.append(chat)
+        except errors.FloodWait as fw:
+            await asyncio.sleep(fw.value + 5)
+            try:
+                await app.get_chat(chat)
+                alive_chats.append(chat)
+            except Exception:
+                dead_chats.append(chat)
+        except Exception:
+            dead_chats.append(chat)
+        await asyncio.sleep(0.1)
+
+    # USERS CHECK
+    for user in users:
+        try:
+            await app.get_chat(user)
+            alive_users.append(user)
+        except errors.FloodWait as fw:
+            await asyncio.sleep(fw.value + 5)
+            try:
+                await app.get_chat(user)
+                alive_users.append(user)
+            except Exception:
+                dead_users.append(user)
+        except Exception:
+            dead_users.append(user)
+        await asyncio.sleep(0.1)
+
+    text = message.lang["cbstats_result"].format(
+        len(groups), len(alive_chats), len(dead_chats),
+        len(users), len(alive_users), len(dead_users),
+    )
+
+    failed = ""
+    if dead_chats:
+        failed += "Dead Chats:\n" + "\n".join(str(c) for c in dead_chats) + "\n\n"
+    if dead_users:
+        failed += "Dead Users:\n" + "\n".join(str(u) for u in dead_users) + "\n\n"
+
+    if "-clean" in message.command:
+        for chat in dead_chats:
+            await db.rm_chat(chat)
+        for user in dead_users:
+            await db.rm_user(user)
+        text += message.lang["cbstats_cleaned"].format(len(dead_chats), len(dead_users))
+
+    try: await sent.delete()
+    except Exception: pass
+
+    if failed:
+        with open("dead_list.txt", "w") as f:
+            f.write(failed)
+        await message.reply_document(
+            document="dead_list.txt",
+            caption=text,
+        )
+        os.remove("dead_list.txt")
+    else:
+        await message.reply_text(text)
