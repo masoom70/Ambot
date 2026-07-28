@@ -3,7 +3,7 @@
 # This file is part of AnonXMusic
 
 
-from random import randint
+from random import choice, randint
 from time import time
 
 from pymongo import AsyncMongoClient
@@ -140,8 +140,14 @@ class MongoDB:
             )
 
     # ASSISTANT METHODS
-    async def set_assistant(self, chat_id: int) -> int:
-        num = randint(1, len(userbot.clients))
+    async def set_assistant(self, chat_id: int, exclude: set = None) -> int:
+        exclude = exclude or set()
+        total = len(userbot.clients)
+        choices = [n for n in range(1, total + 1) if n not in exclude]
+        if not choices:
+            choices = list(range(1, total + 1))
+
+        num = choice(choices) if exclude else randint(1, total)
         await self.assistantdb.update_one(
             {"_id": chat_id},
             {"$set": {"num": num}},
@@ -161,17 +167,17 @@ class MongoDB:
         return anon.clients[self.assistant[chat_id] - 1]
 
     async def get_client(self, chat_id: int):
+        from anony import anon
+
         if chat_id not in self.assistant:
             await self.get_assistant(chat_id)
-        return {
-            1: userbot.one,
-            2: userbot.two,
-            3: userbot.three,
-            4: userbot.four,
-            5: userbot.five,
-        }.get(
-            self.assistant[chat_id]
-        )
+        return anon.clients[self.assistant[chat_id] - 1]
+
+    async def switch_assistant(self, chat_id: int, exclude: set):
+        from anony import anon
+
+        num = await self.set_assistant(chat_id, exclude=exclude)
+        return anon.clients[num - 1]
 
     # BLACKLIST METHODS
     async def add_blacklist(self, chat_id: int) -> None:
