@@ -109,7 +109,7 @@ def checkUB(play):
                                 m.lang["play_invite_error"].format(type(ex).__name__)
                             )
                     except errors.FloodWait as fw:
-                        logger.warning(f"Assistant {client.id} hit FloodWait of {fw.value}s in {chat_id}. Switching assistant...")
+                        #logger.warning(f"Assistant {client.id} hit FloodWait of {fw.value}s in {chat_id}. Switching assistant...")
                         await db.cycle_assistant(chat_id)
                         client = await db.get_client(chat_id)
                         await asyncio.sleep(1)
