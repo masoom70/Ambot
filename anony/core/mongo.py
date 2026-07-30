@@ -1,10 +1,9 @@
 # Copyright (c) 2025 AnonymousX1025
-#
 # Licensed under the MIT License.
-#
 # This file is part of AnonXMusic
 
-from random import randint
+
+from random import choice, randint
 from time import time
 
 from pymongo import AsyncMongoClient
@@ -27,7 +26,6 @@ class MongoDB:
         self.blacklisted = []
         self.cmd_delete = []
         self.notified = []
-
         self.cache = self.db.cache
         self.logger = False
         self.leaving = False
@@ -49,6 +47,7 @@ class MongoDB:
 
     async def connect(self) -> None:
         """Check if we can connect to the database.
+
         Raises:
             SystemExit: If the connection to the database fails.
         """
@@ -93,7 +92,7 @@ class MongoDB:
             if doc := await self.cache.find_one({"_id": "auto_leave"}):
                 self.leaving = doc.get("status", False)
         return self.leaving
-
+    
     async def set_auto_leave(self, status: bool) -> None:
         self.leaving = status
         await self.cache.update_one(
@@ -108,12 +107,10 @@ class MongoDB:
 
     async def set_autoplay(self, chat_id: int, status: bool) -> None:
         if status:
-            if chat_id in self.auto_play:
-                return
+            if chat_id in self.auto_play: return
             self.auto_play.append(chat_id)
         else:
-            if chat_id not in self.auto_play:
-                return
+            if chat_id not in self.auto_play: return
             self.auto_play.remove(chat_id)
 
     # AUTH METHODS
@@ -159,9 +156,11 @@ class MongoDB:
         if chat_id not in self.assistant:
             doc = await self.assistantdb.find_one({"_id": chat_id})
             num = doc["num"] if doc else None
+
             if not num or num > len(anon.clients):
                 num = await self.set_assistant(chat_id)
             self.assistant[chat_id] = num
+
         return anon.clients[self.assistant[chat_id] - 1]
 
     async def get_client(self, chat_id: int):
@@ -174,43 +173,47 @@ class MongoDB:
             self.assistant[chat_id] = num
 
         return {
-            1: userbot.one,
-            2: userbot.two,
-            3: userbot.three,
-            4: userbot.four,
+            1: userbot.one, 2: userbot.two,
+            3: userbot.three, 4: userbot.three,
             5: userbot.five,
         }.get(num)
 
-    async def cycle_assistant(self, chat_id: int) -> int:
+    # NEW ASSISTANT METHODS
+    async def get_client_dynamic(self, chat_id: int):
         if chat_id not in self.assistant:
             await self.get_assistant(chat_id)
 
-        current_num = self.assistant.get(chat_id, 1)
-        next_num = current_num + 1        
-        if next_num > len(userbot.clients):
-            next_num = 1
+        num = self.assistant[chat_id]
+        if num > len(userbot.clients):
+            num = await self.set_assistant(chat_id)
+            self.assistant[chat_id] = num
 
+        return userbot.clients[num - 1]
+
+    async def switch_assistant(self, chat_id: int, exclude: set[int] = None) -> int | None:
+        total = len(userbot.clients)
+        available = [n for n in range(1, total + 1) if n not in (exclude or set())]
+        if not available:
+            return None
+
+        num = choice(available)
         await self.assistantdb.update_one(
             {"_id": chat_id},
-            {"$set": {"num": next_num}},
+            {"$set": {"num": num}},
             upsert=True,
         )
-        self.assistant[chat_id] = next_num
-        return next_num
+        self.assistant[chat_id] = num
+        return num
 
     # BLACKLIST METHODS
     async def add_blacklist(self, chat_id: int) -> None:
         if str(chat_id).startswith("-"):
             self.blacklisted.append(chat_id)
             return await self.cache.update_one(
-                {"_id": "bl_chats"},
-                {"$addToSet": {"chat_ids": chat_id}},
-                upsert=True,
+                {"_id": "bl_chats"}, {"$addToSet": {"chat_ids": chat_id}}, upsert=True
             )
         await self.cache.update_one(
-            {"_id": "bl_users"},
-            {"$addToSet": {"user_ids": chat_id}},
-            upsert=True,
+            {"_id": "bl_users"}, {"$addToSet": {"user_ids": chat_id}}, upsert=True
         )
 
     async def del_blacklist(self, chat_id: int) -> None:
@@ -231,7 +234,6 @@ class MongoDB:
                 doc = await self.cache.find_one({"_id": "bl_chats"})
                 self.blacklisted.extend(doc.get("chat_ids", []) if doc else [])
             return self.blacklisted
-
         doc = await self.cache.find_one({"_id": "bl_users"})
         return doc.get("user_ids", []) if doc else []
 
@@ -266,8 +268,7 @@ class MongoDB:
         if delete:
             self.cmd_delete.append(chat_id)
         else:
-            if chat_id in self.cmd_delete:
-                self.cmd_delete.remove(chat_id)
+            self.cmd_delete.remove(chat_id)
         await self.chatsdb.update_one(
             {"_id": chat_id},
             {"$set": {"cmd_delete": delete}},
@@ -319,8 +320,7 @@ class MongoDB:
         if remove and chat_id in self.admin_play:
             self.admin_play.remove(chat_id)
         else:
-            if chat_id not in self.admin_play:
-                self.admin_play.append(chat_id)
+            self.admin_play.append(chat_id)
         await self.chatsdb.update_one(
             {"_id": chat_id},
             {"$set": {"admin_play": not remove}},
@@ -361,11 +361,12 @@ class MongoDB:
             self.users.extend([user["_id"] async for user in self.usersdb.find()])
         return self.users
 
+
     async def migrate_coll(self) -> None:
         logger.info("Migrating users and chats from old collections...")
+
         users, musers, mchats = [], [], []
         seen_chats, seen_users = set(), set()
-
         users.extend([user async for user in self.usersdb.find()])
         users.extend([user async for user in self.db.tgusersdb.find()])
 
@@ -375,6 +376,7 @@ class MongoDB:
                 user_id = _id
             else:
                 user_id = int(user.get("user_id"))
+
             if user_id in seen_users:
                 continue
             seen_users.add(user_id)
@@ -382,7 +384,6 @@ class MongoDB:
 
         await self.usersdb.drop()
         await self.db.tgusersdb.drop()
-
         if musers:
             await self.usersdb.insert_many(musers)
 
@@ -392,6 +393,7 @@ class MongoDB:
                 chat_id = _id
             else:
                 chat_id = int(chat.get("chat_id"))
+
             if chat_id in seen_chats:
                 continue
             seen_chats.add(chat_id)
@@ -408,10 +410,10 @@ class MongoDB:
         doc = await self.cache.find_one({"_id": "migrated"})
         if not doc:
             await self.migrate_coll()
+
         await self.get_chats()
         await self.get_users()
         await self.auto_leave(True)
         await self.get_blacklisted(True)
         await self.get_logger()
         logger.info("Database cache loaded.")
-
